@@ -1,23 +1,86 @@
-# Telegram Renamer Bot
-A Telegram Bot For Series/Anime Channel Admins So That They Can Rename Quickly And Efficently 
+# Auto-Rename Telegram Bot
 
-[![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy)
+A Telegram bot for channel/admin workflows that renames anime/video files into a clean, consistent format before re-uploading.
 
-[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/new/template/18g9vy?referralCode=veB697)
+## Features
 
-### Configuration
-- `API_ID` - Get it by creating an app on [https://my.telegram.org](https://my.telegram.org)
-- `API_HASH` - Get it by creating an app on [https://my.telegram.org](https://my.telegram.org)
-- `BOT_TOKEN` - Get it by creating a bot on [https://t.me/BotFather](https://t.me/BotFather)
-- `SUDO_USERS` - Chat identifier of the sudo user. For multiple users use space as seperator.
-- `SUFIX` - Text After The Renamed File 
+- Queue-based processing (safe for multiple uploads).
+- Cleaner and more informative bot UI messages.
+- Auto filename parsing with `anitopy`:
+  - Anime title
+  - Season (if available)
+  - Episode number (if available)
+- Custom thumbnail support:
+  - Send a photo once, saved as `thumb.jpg`.
+- Automatic metadata extraction (duration, width, height).
 
-```### Installing Requirements
-Install the required Python Modules in your machine.
-apt-get -qq install ffmpeg
-pip3 install -r requirements.txt
-### Deployment
-With python3.7 or later.
-python3 -m bot```
+## Filename Format
 
-Thanks R136A1 For Helping Out
+The bot generates names like:
+
+```text
+[Anime Title] [Season 1] [Episode 08] [YourSuffix].mkv
+```
+
+If parsing fails, the original stem is used.
+
+## Requirements
+
+- Python 3.10+
+- `ffmpeg` available in PATH
+
+## Setup
+
+1. Clone this repo.
+2. Install system dependency:
+
+   ```bash
+   sudo apt-get update && sudo apt-get install -y ffmpeg
+   ```
+
+3. Install Python dependencies:
+
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. Configure environment variables.
+
+## Environment Variables
+
+| Variable | Required | Description |
+|---|---|---|
+| `API_ID` | ✅ | Telegram API ID from https://my.telegram.org |
+| `API_HASH` | ✅ | Telegram API hash from https://my.telegram.org |
+| `BOT_TOKEN` | ✅ | Bot token from @BotFather |
+| `SUDO_USERS` | ✅ | Space-separated Telegram user IDs allowed to use the bot |
+| `SUFFIX` | ❌ | Tag appended to generated filename (default: `Renamed`) |
+| `DOWNLOAD_DIR` | ❌ | Download directory (default: `downloads`) |
+
+Example:
+
+```env
+API_ID=123456
+API_HASH=your_api_hash
+BOT_TOKEN=123456:ABCDEF
+SUDO_USERS=11111111 22222222
+SUFFIX=WEB-DL
+DOWNLOAD_DIR=downloads
+```
+
+## Run
+
+```bash
+python -m bot
+```
+
+## Cleanup Done in This Revision
+
+- Removed legacy platform files: `heroku.yml`, `app.json`.
+- Removed duplicate/unused code paths and blocking queue logic.
+- Standardized config loading and defaults.
+- Improved readability and structure across core modules.
+
+## License
+
+MIT (see `LICENSE`).
