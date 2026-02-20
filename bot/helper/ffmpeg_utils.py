@@ -1,57 +1,92 @@
-import asyncio
+from __future__ import annotations
+
 import os
-import sys
-import json
+import re
+import subprocess
+from pathlib import Path
+
 import anitopy
-import time
-from bot import ffmpeg, suffix
-from subprocess import call, check_output
 from hachoir.metadata import extractMetadata
 from hachoir.parser import createParser
-from subprocess import Popen, PIPE
 
-def encode(filepath):
-    basefilepath, extension = os.path.splitext(filepath)
-    output_filepath = basefilepath + "R136A1_Encodes" + ".mkv"
-    nam = basefilepath.replace("/home/runner/work/Auto-Rename/Auto-Rename/downloads/", " ")
+from bot import settings
+
+
+def _clean_name(name: str) -> str:
+    cleaned = re.sub(r"[._]+", " ", name)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    return cleaned
+
+
+def build_renamed_filename(file_path: str | Path) -> str:
+    """Return a readable file name generated from anime metadata."""
+    source = Path(file_path)
+    parsed = anitopy.parse(_clean_name(source.stem))
+
+    title = parsed.get("anime_title") or source.stem
+    parts = [f"[{title}]"]
+
+    if parsed.get("anime_season"):
+        parts.append(f"[Season {parsed['anime_season']}]")
+    if parsed.get("episode_number"):
+        parts.append(f"[Episode {parsed['episode_number']}]")
+
+    parts.append(f"[{settings.suffix}]")
+    return " ".join(parts) + ".mkv"
+
+
+def get_thumbnail(input_file: str | Path) -> str:
+    output_file = "thumb_auto.jpg"
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-ss",
+            "00:00:20",
+            "-i",
+            str(input_file),
+            "-frames:v",
+            "1",
+            output_file,
+            "-y",
+        ],
+        check=False,
+    )
+    return output_file
+
+
+def get_duration(file_path: str | Path) -> int:
+    parser = createParser(str(file_path))
+    if not parser:
+        return 0
+
+    with parser:
+        metadata = extractMetadata(parser)
+
+    if metadata and metadata.has("duration"):
+        return metadata.get("duration").seconds
+
+    return 0
+
+
+def get_width_height(file_path: str | Path) -> tuple[int, int]:
+    parser = createParser(str(file_path))
+    if not parser:
+        return 1280, 720
+
+    with parser:
+        metadata = extractMetadata(parser)
+
+    if metadata and metadata.has("width") and metadata.has("height"):
+        return metadata.get("width"), metadata.get("height")
+
+    return 1280, 720
+
+
+def safe_remove(file_path: str | Path) -> None:
     try:
-     nam = nam.replace("_", " ")
-     nam = nam.replace(".mkv", " ")
-     nam = nam.replace(".mp4", " ")
-     nam = nam.replace(".", " ")
-     if "/bot/downloads/" in nam:
-      nam = nam.replace("/bot/downloads", " ")
-     new_name = anitopy.parse(nam)
-     anime_name = new_name["anime_title"]
-     joined_string = f"[{anime_name}]"
-     if "anime_season" in new_name.keys():
-      animes_season = new_name["anime_season"]
-      joined_string = f"{joined_string}" + f" [Season {animes_season}]"
-     if "episode_number" in new_name.keys():
-      episode_no = new_name["episode_number"]
-      joined_string = f"{joined_string}" + f" [Episode {episode_no}]"
-     og = joined_string + f" [{suffix}]" + ".mkv"
-     strr = og
-     return strr
-    except Exception as e:
-     return basefilepath
-
-def get_thumbnail(in_filename):
-    out_filename = 'thumb1.jpg'
-    cmd = '-map 0:v -ss 00:20 -frames:v 1'
-    call(['ffmpeg', '-i', in_filename] + cmd.split() + [out_filename])
-    return out_filename
-  
-def get_duration(filepath):
-    metadata = extractMetadata(createParser(filepath))
-    if metadata.has("duration"):
-      return metadata.get('duration').seconds
-    else:
-      return 0
-
-def get_width_height(filepath):
-    metadata = extractMetadata(createParser(filepath))
-    if metadata.has("width") and metadata.has("height"):
-      return metadata.get("width"), metadata.get("height")
-    else:
-      return 1280, 720
+        os.remove(file_path)
+    except FileNotFoundError:
+        pass

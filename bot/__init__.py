@@ -1,21 +1,49 @@
 import os
-import asyncio
-from pyrogram import Client
+from dataclasses import dataclass
+from pathlib import Path
+
 from dotenv import load_dotenv
+from pyrogram import Client
 
-api_id = int(os.environ.get("API_ID"))
-api_hash = os.environ.get("API_HASH")
-bot_token = os.environ.get("BOT_TOKEN")
-download_dir = os.environ.get("DOWNLOAD_DIR", "downloads/")
-sudo_users = list(set(int(x) for x in os.environ.get("SUDO_USERS").split()))
-ffmpeg = os.environ.get("FFMPEG", "")
-suffix = os.environ.get("SUFFIX")
+load_dotenv()
 
-app = Client(":memory:", api_id=api_id, api_hash=api_hash, bot_token=bot_token, workers=2)
 
-data = []
+@dataclass(frozen=True)
+class Settings:
+    api_id: int
+    api_hash: str
+    bot_token: str
+    sudo_users: set[int]
+    download_dir: Path
+    suffix: str
 
-if not download_dir.endswith("/"):
-  download_dir = str(download_dir) + "/"
-if not os.path.isdir(download_dir):
-  os.makedirs(download_dir)
+
+def _load_settings() -> Settings:
+    api_id = int(os.environ["API_ID"])
+    api_hash = os.environ["API_HASH"]
+    bot_token = os.environ["BOT_TOKEN"]
+    sudo_users = {int(user_id) for user_id in os.environ["SUDO_USERS"].split()}
+    download_dir = Path(os.environ.get("DOWNLOAD_DIR", "downloads")).expanduser()
+    suffix = os.environ.get("SUFFIX", "Renamed")
+
+    download_dir.mkdir(parents=True, exist_ok=True)
+
+    return Settings(
+        api_id=api_id,
+        api_hash=api_hash,
+        bot_token=bot_token,
+        sudo_users=sudo_users,
+        download_dir=download_dir,
+        suffix=suffix,
+    )
+
+
+settings = _load_settings()
+
+app = Client(
+    name="auto-rename-bot",
+    api_id=settings.api_id,
+    api_hash=settings.api_hash,
+    bot_token=settings.bot_token,
+    workers=4,
+)
